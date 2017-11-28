@@ -74,6 +74,37 @@ inline struct ir_in ir_read(){
   return ir_struct;
 }
 
+void blink_5_LEDs(int option){
+  if(option == 1){ //blue option
+    digitalWrite(L_MOTOR, 150);
+    for(int i = 0; i < 20; i++){
+     digitalWrite(bLED, HIGH);
+     delay((unsigned long)20);
+     digitalWrite(bLED, LOW);
+    }
+  }
+  else if(option == 3){ //red option
+    digitalWrite(R_MOTOR,150);
+    for(int i = 0; i < 20; i++){
+      digitalWrite(rLED, HIGH);
+      delay((unsigned long)20);
+      digitalWrite(rLED, LOW);
+    }
+  }
+  else if(option == 2){ //both
+    digitalWrite(R_MOTOR, 150);
+    digitalWrite(L_MOTOR, 150);
+    for(int i = 0; i < 20; i++){
+     digitalWrite(bLED, HIGH);
+     digitalWrite(rLED, HIGH);
+     delay((unsigned long)20);
+     digitalWrite(bLED, LOW);
+     digitalWrite(rLED, LOW);
+    }
+  }
+  return;
+}
+
 void resetLEDs(){digitalWrite(gLED, LOW); digitalWrite(bLED, LOW); digitalWrite(rLED, LOW);};
 
 void Turn_Perpendicular(){ //Turns left when detects that we're perpendicular to the line. This should hardly go on.
@@ -98,6 +129,7 @@ int motor_readings1[8];
 int motor_readings2[8];
 int m_increment = 0;
 int changedetected = 0;
+int changedetected1 = 0;
 
 void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   const int tolerance_level = 20;
@@ -105,20 +137,34 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   if(m_increment == 7){
     for(int i = 0; i < 8; i++){
       if(!changedetected && (motor_readings1[i] - motor_readings1[0] > tolerance_level))
-        changedetected = 1; //true
+        {
+          changedetected = 1; //true
+          break;
+        }
       else 
         changedetected = 0; //false
     }//We should insert a function that jumpstarts the motors, or just add a constant value to the PID instead?
-  }
-  changedetected = 1; //debug to stop this portion
+    for(int j = 0; j < 8; j++){
+       if(!changedetected1 && (motor_readings2[j] - motor_readings2[0] > tolerance_level))
+        {
+          changedetected1 = 1; //true
+          break;
+        }
+      else
+        changedetected1 = 0; //false
+      }
+    }
+  blink_5_LEDs((int)changedetected1*2 + (int)changedetected);
+  
+  //changedetected = 1; //debug to stop this portion
   int rError = abs(ir_struct.y - ir_struct.x);
   int lError = abs(ir_struct.y - ir_struct.z);
   Serial << "x1:  " << ir_struct.x << "  y1:  " << ir_struct.y << "  z1:  " << ir_struct.z << "  \n";  //Previously in loop to test IR
   const int level = 65; //Threshold level. Above 40 means black detected, below that means white.
   const int level_mid = 58;
-  if(ir_struct.x > level){
-    if(ir_struct.y > level_mid){
-      if(ir_struct.z > level){
+  if(ir_struct.x > 30){
+    if(ir_struct.y > 80){
+      if(ir_struct.z > 120 && ir_struct.y > 120 && ir_struct.x > 120 ){
         //We're perpendicular to the line. Turn right until we hit the line again.
           digitalWrite(R_MOTOR, 0);
           digitalWrite(L_MOTOR, 0);
@@ -131,8 +177,8 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           digitalWrite(bLED, HIGH);
           digitalWrite(rLED, LOW);
           digitalWrite(gLED, LOW);
-          rmotor = constrain(int(basespeedR + (!changedetected)*10 + getFix(&rman, rError)), basespeedR/2, 220);
-          lmotor = basespeedL + (!changedetected)*10;
+          rmotor = constrain(int(basespeedR + getFix(&rman, rError)), basespeedR/2, 220);
+          lmotor = basespeedL;
         //We should update PID to go to the left a little bit
         }
       }
@@ -140,8 +186,8 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           digitalWrite(bLED, HIGH);
           digitalWrite(rLED, LOW);
           digitalWrite(gLED, LOW);
-          rmotor = constrain(int(basespeedR + (!changedetected)*10 + getFix(&rman, rError)), basespeedR/2, 220);
-          lmotor = basespeedL + (!changedetected)*10;
+          rmotor = constrain(int(basespeedR + getFix(&rman, rError)), basespeedR/2, 220);
+          lmotor = basespeedL;
         //We should update PID to go to the left a little bit
       }
     }
@@ -151,8 +197,8 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           digitalWrite(bLED, LOW);
           digitalWrite(gLED, LOW);
           digitalWrite(rLED, HIGH);
-          lmotor = constrain(int(basespeedL + (!changedetected)*10 + getFix(&lman, lError)), basespeedL/2, 220);
-          rmotor = basespeedR + (!changedetected)*10;
+          lmotor = constrain(int(basespeedL + getFix(&lman, lError)), basespeedL/2, 220);
+          rmotor = basespeedR;
         //TURN RIGHT
         }
       else{
@@ -161,17 +207,17 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
         digitalWrite(bLED, LOW);
         //We're completely in a straight line. Reset pid integral error in order to make PID recalibrated.
         resetPid(&lman); resetPid(&rman);
-        rmotor = basespeedR + (!changedetected)*10;
-        lmotor = basespeedL + (!changedetected)*10;
+        rmotor = basespeedR;
+        lmotor = basespeedL;
         }  
       }
-     else if(ir_struct.z > level){//Update PID to go to the left a lot. 
+     else if(ir_struct.z > 30){//Update PID to go to the left a lot. 
       //TURN RIGHT
           digitalWrite(rLED, HIGH);
           digitalWrite(bLED, LOW);
           digitalWrite(gLED, LOW);
-          lmotor = constrain(int(basespeedL + (!changedetected)*10 + getFix(&lman, lError)), basespeedL/2, 220);
-          rmotor = basespeedR + (!changedetected)*10;
+          lmotor = constrain(int(basespeedL + getFix(&lman, lError)), basespeedL/2, 220);
+          rmotor = basespeedR;
      }
      else{//No line to follow, we finished (Jumpstart and see where we can go after this)
       /*
@@ -185,12 +231,12 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   }
 }
 void setup() {
-  rman.kd = -0.45;
-  rman.ki = 0.0056;
-  rman.kp = 0.4;
-  lman.ki = 0.003;
-  lman.kd = -0.45;
-  lman.kp = 0.16;
+  rman.kd = -0.05; //kd should always be negative on rman and lman
+  rman.ki = 0.00;
+  rman.kp = 2.2;
+  lman.ki = 0.005;
+  lman.kd = -0.007;
+  lman.kp = 6.0;
   
   for(int i = 0; i < 8; i++){motor_readings1[i] = 0; motor_readings2[i] = 0;}
   Serial.begin(9600);
