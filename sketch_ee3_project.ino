@@ -12,8 +12,8 @@
 #define r_wheel_ir 2
 #define l_wheel_ir 1
 
-const int basespeedR = 115;
-const int basespeedL = 80; 
+const int basespeedR = 115-10;
+const int basespeedL = 80-10; 
 
 template<class T> inline Print &operator <<(Print &obj, T arg) { obj.print(arg); return obj; }
 const int DT = 1;
@@ -130,7 +130,7 @@ int motor_readings2[8];
 int m_increment = 0;
 int changedetected = 0;
 int changedetected1 = 0;
-
+int lastaction = 0; //0 turn right, 1 turn left
 void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   const int tolerance_level = 20;
   int avg = 0;
@@ -154,7 +154,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
         changedetected1 = 0; //false
       }
     }
-  blink_5_LEDs((int)changedetected1*2 + (int)changedetected);
+  //blink_5_LEDs((int)changedetected1*2 + (int)changedetected);
   
   //changedetected = 1; //debug to stop this portion
   int rError = abs(ir_struct.y - ir_struct.x);
@@ -174,6 +174,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           delay(300);
         }
        else{
+          lastaction = 1;
           digitalWrite(bLED, HIGH);
           digitalWrite(rLED, LOW);
           digitalWrite(gLED, LOW);
@@ -183,6 +184,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
         }
       }
     else{
+          lastaction = 1;
           digitalWrite(bLED, HIGH);
           digitalWrite(rLED, LOW);
           digitalWrite(gLED, LOW);
@@ -194,6 +196,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   else{
     if(ir_struct.y > level_mid){
       if(ir_struct.z > level){
+        lastaction = 0;
           digitalWrite(bLED, LOW);
           digitalWrite(gLED, LOW);
           digitalWrite(rLED, HIGH);
@@ -202,6 +205,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
         //TURN RIGHT
         }
       else{
+        lastaction = 3;
         digitalWrite(gLED, HIGH);
         digitalWrite(rLED, LOW);
         digitalWrite(bLED, LOW);
@@ -213,6 +217,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
       }
      else if(ir_struct.z > 30){//Update PID to go to the left a lot. 
       //TURN RIGHT
+          lastaction = 0;
           digitalWrite(rLED, HIGH);
           digitalWrite(bLED, LOW);
           digitalWrite(gLED, LOW);
@@ -220,22 +225,29 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           rmotor = basespeedR;
      }
      else{//No line to follow, we finished (Jumpstart and see where we can go after this)
-      /*
-      lmotor = 0;
-      rmotor = 0;
-      digitalWrite(bLED, HIGH);
-      digitalWrite(rLED, HIGH);
-      digitalWrite(gLED, LOW);
-      */
+      if(lastaction == 0){
+          digitalWrite(rLED, HIGH);
+          digitalWrite(bLED, LOW);
+          digitalWrite(gLED, LOW);
+          lmotor = constrain(int(basespeedL + getFix(&lman, lError)), basespeedL/2, 220);
+          rmotor = basespeedR;
+        }
+      else if(lastaction == 1){
+          digitalWrite(bLED, HIGH);
+          digitalWrite(rLED, LOW);
+          digitalWrite(gLED, LOW);
+          rmotor = constrain(int(basespeedR + getFix(&rman, rError)), basespeedR/2, 220);
+          lmotor = basespeedL;
+        }
      }  
   }
 }
 void setup() {
-  rman.kd = -0.05; //kd should always be negative on rman and lman
-  rman.ki = 0.00;
-  rman.kp = 2.2;
-  lman.ki = 0.005;
-  lman.kd = -0.007;
+  rman.kd = -0.005; //kd should always be negative on rman and lman
+  rman.ki = 0.09;
+  rman.kp = 6.5;
+  lman.ki = 0.09;
+  lman.kd = -0.005;
   lman.kp = 6.0;
   
   for(int i = 0; i < 8; i++){motor_readings1[i] = 0; motor_readings2[i] = 0;}
