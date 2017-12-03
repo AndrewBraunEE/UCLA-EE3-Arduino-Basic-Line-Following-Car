@@ -144,6 +144,7 @@ int m_increment = 0;
 int changedetected = 0;
 int changedetected1 = 0;
 int lastaction = 0; //0 turn right, 1 turn left
+bool detectedexit = 0;
 void process(ir_in& ir_struct, int& rmotor, int& lmotor){
   const int tolerance_level = 20;/*
   if(m_increment == 7){
@@ -183,6 +184,7 @@ void process(ir_in& ir_struct, int& rmotor, int& lmotor){
           digitalWrite(bLED, HIGH);
           digitalWrite(rLED, HIGH);
           digitalWrite(gLED, LOW);
+          detectedexit = 1;
         }
        else{
           lastaction = 1;
@@ -316,14 +318,16 @@ int rmotor = 0; int lmotor = 0; unsigned tick_cnt = 0;
 void loop() {
   ir_in ir_struct = ir_read();
   //Serial << "RW: " << ir_struct.rw << "\n LW: " << ir_struct.lw << "\n";
-  if(tick_cnt > 50){
+  if(tick_cnt > 50 && !detectedexit){
+   analogWrite(R_MOTOR, rmotor);
+   analogWrite(L_MOTOR, lmotor);
    process(ir_struct, rmotor, lmotor);
   }
   else{
+    analogWrite(R_MOTOR, LOW);
+    analogWrite(L_MOTOR, LOW);
     //time_straight(500);
    }
-  analogWrite(R_MOTOR, rmotor);
-  analogWrite(L_MOTOR, lmotor);
   if(tick_cnt % 50){ //Only runs every 50th tick count
     motor_readings1[m_increment] = ir_struct.rw;
     motor_readings2[m_increment] = ir_struct.lw;
